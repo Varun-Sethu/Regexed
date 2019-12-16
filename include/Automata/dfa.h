@@ -2,41 +2,53 @@
 #define __DFA_H__
 
 
-#include <vector>
-#include <unordered_map>
+#include <map>
 #include <string>
-#include <tuple>
 #include <algorithm>
+#include <set>
 #include <utility>
 
 using namespace std;
+typedef set<string> collection;
+
 
 // Finite automata structure
 class DFA {
     public:
-        // Core data and information
-        vector<string> states;
-        vector<char> alphabet;
-        unordered_map<string, vector<pair<char, string>>> transitionFunctions;
         string initialState;
-        vector<string> acceptingStates;
+
+    //protected:
+        // Core data and information
+        collection states;
+        collection acceptingStates;
+        set<char> alphabet;
+        map<string, 
+                multimap<char, string>> transitionFunctions;
 
 
     public:
-        DFA() {
-            this->initialState = "s-0";
-            this->states.push_back("s-0");
+        DFA(set<char> alphabet = set<char>()) 
+            : alphabet(alphabet) 
+        {
+            
         }
 
 
+
         // Adds a state to the DFA and returns the state id for it
-        string addState(bool isAccepting) {
+        string addState(bool accepting) {
             string id = "s-" + to_string(states.size());
-            if (isAccepting) {
+            if (accepting) {
                 id = "t" + id;
-                acceptingStates.push_back(id);
+                acceptingStates.insert(id);
             }
-            this->states.push_back(id);
+
+            // Construct an entry for this new state into the transitionFunctions list
+            transitionFunctions.insert(
+                    make_pair(id, multimap<char, string>())); 
+            states.insert(id);
+            // If the size of the states set is 1 then the state just inserted is an initial state
+            if (states.size() == 1) initialState = id;
             return id;
         }
 
@@ -45,30 +57,28 @@ class DFA {
         
         // Add a letter to the DFA's alphapbet
         void addAlphabet(char letter) {
-            if (std::find(alphabet.begin(), alphabet.end(), letter) != alphabet.end() || letter == this->epsilon) return;
-            this->alphabet.push_back(letter);
+            alphabet.insert(letter);
         }
 
 
 
 
 
-        // Construct a transition function between two states
+        // Construct a transition function between two states given the element of the alphabet that is meant to be consumed
         virtual void constructTransition(string stateID_from, string stateID_to, char letter) {
-            // Determine if these objects actually exist in each of the vectors
-            if(stoi(stateID_to.substr(stateID_to.find("-") + 1)) >= states.size() || stoi(stateID_from.substr(stateID_from.find("-") + 1)) >= states.size() || find(alphabet.begin(), alphabet.end(), letter) == alphabet.end()) {
-                return;
-            }
-            if (transitionFunctions.find(stateID_from) == transitionFunctions.end()) {
-                transitionFunctions.insert(make_pair(stateID_from, vector<pair<char, string>>())); 
-            }
+            // If the letter is not in the alphabet or the states do not exist then cancel the construction
+            if(stateasInt(stateID_to) >= states.size() 
+                || stateasInt(stateID_from) >= states.size() 
+                || !alphabet.count(letter)) return;
 
-
-            // Before inserting we must ensure that a transition function like this doesn't actually exist in the first place
-            for(auto p: transitionFunctions[stateID_from]) {
-                if (p.first == letter) return;
-            }
-            transitionFunctions[stateID_from].push_back(make_pair(letter, stateID_to));
+            // Ensure that no existing transition function exists from this state to another via the same letter
+            const bool noTransitionExists = transitionFunctions[stateID_from]
+                                                        .count(letter) == 0;
+            // Only construct this new transition if no such functions existed previously
+            if (!noTransitionExists) return;
+            else 
+                transitionFunctions[stateID_from].insert(make_pair(
+                                                        letter, stateID_to));
         }
 
 
@@ -78,36 +88,49 @@ class DFA {
         // Utility functions
         // Determines weather a specific sentence is valid in the FSM's language
         virtual bool accepts(string sentence) {
-            if (!verify()) return false;
-            string currentState = this->initialState;
+            if (!valid_DFA()) return false;
 
-            // continue running this while it is not a termial state
-            while (sentence.length() != 0) {
-                // Attain a list of all the transition functions from this current state
-                if (transitionFunctions.find(currentState) == transitionFunctions.end()) return false;
-                vector<pair<char, string>> moveFunctions{transitionFunctions[currentState].begin(), transitionFunctions[currentState].end()};
+            string currentState = initialState;
+            // continue running this while there are still letters to be consumed
+            while (sentence.length() > 0) {
+                map<char, string> moveFunctions{ transitionFunctions[currentState].begin(), 
+                                                           transitionFunctions[currentState].end() };
 
-                // Iterate over each of these transition functions until we approach the first function that well accept this alphabet
-                for(pair<char, string> function: moveFunctions) {
-                    if (function.first == (char)sentence[0]) {
+                // If possible consume the next letter in the sentence and progress the state
+                auto tryConsumingLetter = [&](pair<char, string> function){
+                    bool canConsumeSentence = function.first == static_cast<char>(sentence[0]);
+                    if (canConsumeSentence) {
                         currentState = function.second;
-                        // Trim the sentence
+                        // Trim the current sentence by consuming the first letter
                         sentence = sentence.substr(1, sentence.length());
+                        return true;
                     }
-                }
+                    return false;
+                };
+                // Iterate over each possible move function and consume the next letter
+                bool consumedSentence = any_of(moveFunctions.begin(), moveFunctions.end(), tryConsumingLetter);
+                
+                // If there were no possible functions from this state to another then terminate to match as we are now in a dead state
+                if (!consumedSentence) return false;
             }
-            return currentState[0] == 't';
+
+            // If we ended on a terminating state that means the sentence was accepted by the DFA
+            return acceptingStates.count(currentState) > 0;
         }
 
-    private:
 
-        // verifies that this DFA is actuall an DFA
-        bool verify() {
-            for(auto it = transitionFunctions.begin(); it != transitionFunctions.end(); it++) {
-                vector<pair<char, string>> moveFunctions = it->second;
-                if (moveFunctions.size() != alphabet.size()) return false;
-            }
-            return true;
+
+
+    private:
+        // verifies that this DFA is a valid DFA
+        bool valid_DFA() {
+            auto valid = [&](pair<string, multimap<char, string>> transFunctions) {
+                // Special exception for terminating states
+                if (this->acceptingStates.count(transFunctions.first) > 0) return true;
+                return transFunctions.second.size() == this->alphabet.size();
+            }; // ensures that the current state being tested accepts the entire alphabet
+
+            return all_of(transitionFunctions.begin(), transitionFunctions.end(), valid);
         }
 
 
@@ -115,15 +138,9 @@ class DFA {
     protected:
         const char epsilon = static_cast<char>(108);
 
-
-        vector<string> possibleDestinations(string state, char letter) {
-            vector<string> candidates;
-        
-            for (pair<char, string> function: transitionFunctions[state]) {
-                if (function.first == letter) candidates.push_back(function.second);
-            }
-        
-            return candidates;
+        // Converts a state to an integer (the integer is the number of the state that is the number it was assigned when it was set up)
+        int stateasInt(string stateID) {
+            return stoi(stateID.substr(stateID.find("-") + 1));
         }
 
 };

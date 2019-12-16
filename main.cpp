@@ -1,6 +1,7 @@
 #include "Automata/dfa.h"
 #include "Automata/nfa.h"
 #include <string>
+#include <set>
 #include <iostream>
 
 using namespace std;
@@ -8,21 +9,25 @@ using namespace std;
 
 int main(void) {
     NFA nfa;
+    
+    nfa.addAlphabet('0');
+    nfa.addAlphabet('1');
 
-    string stateOne = nfa.addState(false);
-    string stateTwo = nfa.addState(false);
-    string stateThree = nfa.addState(true);
+    string st0 = nfa.addState(false);
+    string st1 = nfa.addState(false);
+    string st2 = nfa.addState(true);
 
-    nfa.addAlphabet('a');
-    nfa.addAlphabet('b');
-    nfa.addAlphabet('c'); 
+    nfa.constructTransition(st0, st2, '0');
 
-    nfa.constructTransition(nfa.initialState, stateOne, nfa.epsilon);
-    nfa.constructTransition(nfa.initialState, stateTwo, 'a');
-    nfa.constructTransition(stateOne, stateTwo, 'b');
-    nfa.constructTransition(stateTwo, stateTwo, 'b');
-    nfa.constructTransition(stateTwo, stateThree, 'c');
-    nfa.constructTransition(stateOne, stateThree, 'c');
+    nfa.constructTransition(st2, st0, '1');
+    nfa.constructTransition(st2, st0, '0');
 
-    DFA convertedDfa = nfa.epsilonClosureConvert();
+    nfa.constructTransition(st1, st0, '1');
+    
+    nfa.constructTransition(st1, st2, '1');
+    nfa.constructTransition(st2, st1, '0');
+
+    auto dfa = nfa.epsilonClosureConvert();
+
+    std::cout << "hello";
 }   
