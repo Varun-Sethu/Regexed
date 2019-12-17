@@ -21,6 +21,7 @@ set(SRC_FILES
         "src/Automata/dfa.cpp"
 
         "include/Automata/nfa.h"
+        "src/Automata/nfa.cpp"
 )
 
 

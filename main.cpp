@@ -28,6 +28,4 @@ int main(void) {
     nfa.constructTransition(st2, st1, '0');
 
     auto dfa = nfa.epsilonClosureConvert();
-
-    std::cout << "hello";
 }   
