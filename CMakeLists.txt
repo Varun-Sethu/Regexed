@@ -22,6 +22,9 @@ set(SRC_FILES
 
         "include/Automata/nfa.h"
         "src/Automata/nfa.cpp"
+
+        "include/Regex/parse.h"
+        "include/Regex/tokens.h"
 )
 
 
