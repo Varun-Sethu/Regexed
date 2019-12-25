@@ -43,6 +43,21 @@ class DFA {
         // Determines weather a specific sentence is valid in the FSM's language
         virtual bool accepts(string sentence);
 
+        // De-registers a state as a terminating state
+        bool de_register_terminating_state(std::string state) {
+            // Simply just remove it from the accepting states set
+            collection::iterator pos = acceptingStates.find(state);
+            if (pos != acceptingStates.end()) 
+                acceptingStates.erase(pos);
+        } 
+
+        // Operators
+        DFA& operator=(const DFA& other) {
+            acceptingStates = other.acceptingStates;
+            states = other.states;
+            alphabet = other.alphabet;
+            transitionFunctions = other.transitionFunctions;
+        }
     private:
         // verifies that this DFA is a valid DFA
         bool valid_DFA();

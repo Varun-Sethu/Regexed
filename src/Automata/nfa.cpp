@@ -159,3 +159,89 @@ vector<string> NFA::possibleDestinations(string state, char letter) {
         
     return candidates;
 }
+
+
+
+// Adds an NFA to this current NFA
+std::tuple<std::string, 
+            std::string, 
+            std::map<std::string, std::string>> 
+NFA::add(NFA with) {
+    auto intial_terminating_state = *(this->acceptingStates.begin());
+    auto terminating_state_with = *(with.acceptingStates.begin());
+
+    // Due to the inefficencies in the NFA implementation 
+    std::map<std::string, std::string> with_to_new;
+    for (auto state: with.states) {
+        bool is_accepting_state = acceptingStates.count(state) != 0;
+        with_to_new.insert(std::make_pair(
+            state, addState(is_accepting_state)
+        ));
+    }
+    // Insert the transition functions of the "with" into this NFA
+    for (auto state_functions: with.transitionFunctions) {
+        for (auto function: state_functions.second) {
+            constructTransition(
+                with_to_new[state_functions.first], with_to_new[function.second], function.first
+            );
+        }
+    }
+
+    return std::make_tuple(intial_terminating_state, terminating_state_with, with_to_new);
+}
+
+
+
+
+
+// REGEX OPERATIONS BEGIN ===================
+// Concats an NFA with another
+void NFA::concat(NFA with) {
+    // Determine the output of the summation
+    std::string intial_terminating_state, terminating_state_with;
+    std::map<std::string, std::string> with_to_new;
+    std::tie(intial_terminating_state, terminating_state_with, with_to_new) = add(with);
+
+    // Logically the generated NFAs only have a single accepting state, this means we can just pass epsilon transitions between the two
+    constructTransition(intial_terminating_state, with_to_new["s-0"], NFA::epsilon);
+    de_register_terminating_state(intial_terminating_state);
+}
+
+void NFA::kleene_star() {
+    std::string intial_terminating_state = *(this->acceptingStates.begin());
+    std::string new_initial_state = addState(false);
+    std::string new_terminating_state = addState(true);
+
+    // Main logic
+    constructTransition(new_initial_state, initialState, NFA::epsilon);
+    constructTransition(new_initial_state, new_terminating_state, NFA::epsilon);
+    constructTransition(intial_terminating_state, initialState, NFA::epsilon);
+    constructTransition(intial_terminating_state, new_terminating_state, NFA::epsilon);
+
+    this->initialState = new_initial_state;
+    de_register_terminating_state(intial_terminating_state);
+}
+
+// Unions this NFA with another NFA
+void NFA::unionise(NFA with) {
+    // Determine the output of the summation
+    std::string intial_terminating_state, terminating_state_with;
+    std::map<std::string, std::string> with_to_new;
+    std::tie(intial_terminating_state, terminating_state_with, with_to_new) = add(with);
+
+    // Deregister all terminating states
+    std::string new_intial_state = addState(false);
+    constructTransition(new_intial_state, initialState, NFA::epsilon);
+    constructTransition(new_intial_state, with_to_new["s-0"], NFA::epsilon);
+    // Constru the terminating state
+    std::string new_terminating_state = addState(true);
+    constructTransition(intial_terminating_state, new_terminating_state, NFA::epsilon);
+    constructTransition(terminating_state_with, new_terminating_state, NFA::epsilon);
+    // Kill off all the existing terminating states
+    de_register_terminating_state(intial_terminating_state);
+    de_register_terminating_state(terminating_state_with);
+
+    initialState = new_intial_state;
+}
+
+// END ======================================

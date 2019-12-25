@@ -33,7 +33,7 @@ class Tokens {
             }
         }
 
-    private:
+    public:
         Token_Values value;
 };
 
