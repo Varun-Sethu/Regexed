@@ -1,6 +1,5 @@
-# Ebic Regex
-
-Yeah idk, just some weird thing
+# Regexed
+Really simple Regex engine for C++. Recognises the entire class of regular languages.
 
 ## Compilation
 ```bash
